@@ -1,0 +1,177 @@
+
+<h2 class="sr-only">Campus Assistant Chatbot — interactive chat interface for university queries</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+#chat-wrap{display:flex;flex-direction:column;height:560px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;font-family:var(--font-sans)}
+#chat-header{background:#185FA5;color:#E6F1FB;padding:14px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+#chat-header .avatar{width:36px;height:36px;border-radius:50%;background:#B5D4F4;display:flex;align-items:center;justify-content:center;color:#042C53;font-size:18px}
+#chat-header .info .name{font-size:15px;font-weight:500}
+#chat-header .info .status{font-size:12px;opacity:0.75}
+#messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:8px;align-items:flex-end;max-width:85%}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.bubble{padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.5;border:0.5px solid var(--color-border-tertiary)}
+.msg.bot .bubble{background:var(--color-background-secondary);color:var(--color-text-primary);border-radius:16px 16px 16px 4px}
+.msg.user .bubble{background:#185FA5;color:#E6F1FB;border-color:transparent;border-radius:16px 16px 4px 16px}
+.bot-avatar{width:28px;height:28px;border-radius:50%;background:#B5D4F4;display:flex;align-items:center;justify-content:center;color:#042C53;font-size:14px;flex-shrink:0}
+.typing{display:flex;gap:4px;align-items:center;padding:12px 14px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--color-text-secondary);animation:bounce 1.2s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.quick-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.qbtn{font-size:12px;padding:5px 10px;border:0.5px solid #378ADD;border-radius:20px;background:transparent;color:#185FA5;cursor:pointer;font-family:var(--font-sans);transition:background .15s,color .15s}
+.qbtn:hover{background:#185FA5;color:#E6F1FB}
+#input-area{padding:12px 14px;border-top:0.5px solid var(--color-border-tertiary);display:flex;gap:8px;flex-shrink:0;background:var(--color-background-primary)}
+#user-input{flex:1;border:0.5px solid var(--color-border-secondary);border-radius:22px;padding:9px 16px;font-size:14px;font-family:var(--font-sans);background:var(--color-background-secondary);color:var(--color-text-primary);outline:none}
+#user-input:focus{border-color:#378ADD}
+#send-btn{width:38px;height:38px;border-radius:50%;background:#185FA5;border:none;color:#E6F1FB;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:background .15s}
+#send-btn:hover{background:#0C447C}
+</style>
+
+<div id="chat-wrap">
+  <div id="chat-header">
+    <div class="avatar"><i class="ti ti-school" aria-hidden="true"></i></div>
+    <div class="info">
+      <div class="name">CampusBot</div>
+      <div class="status">● Online — University Assistant</div>
+    </div>
+  </div>
+  <div id="messages"></div>
+  <div id="input-area">
+    <input id="user-input" type="text" placeholder="Ask me anything about campus…" autocomplete="off" />
+    <button id="send-btn" aria-label="Send message"><i class="ti ti-send" aria-hidden="true"></i></button>
+  </div>
+</div>
+
+<script>
+const KB = {
+  admission: {
+    keys: ["admission","apply","application","enrollment","enroll","how to join","register","intake"],
+    reply: "📋 <b>Admissions</b><br>Applications open <b>August 1 – September 30</b> each year. Submit your form at <u>admissions.university.edu</u>. Required: 10th & 12th marksheets, ID proof, passport photo, and application fee of ₹500.<br>Need help with a specific programme?"
+  },
+  library: {
+    keys: ["library","books","borrow","issue book","return","reading","catalogue","resources"],
+    reply: "📚 <b>Library Hours</b><br>Mon–Fri: <b>8 AM – 9 PM</b> | Sat: 9 AM – 6 PM | Sun: Closed.<br>Students can borrow up to <b>4 books</b> for 14 days. Late fee: ₹2/day. Access the e-catalogue at <u>library.university.edu</u>."
+  },
+  fees: {
+    keys: ["fee","fees","tuition","payment","pay","scholarship","cost","price","charges"],
+    reply: "💳 <b>Fee Structure</b><br>Tuition fees vary by programme:<br>• Engineering: ₹85,000/yr<br>• Commerce/Arts: ₹45,000/yr<br>• MBA: ₹1,20,000/yr<br><br>Fees can be paid online via the student portal. Scholarship applications open in July — merit-based aid covers 25–75%."
+  },
+  exam: {
+    keys: ["exam","examination","schedule","timetable","date","result","marks","grade","hall ticket"],
+    reply: "📅 <b>Examinations</b><br>The upcoming exam schedule:<br>• Mid-sems: <b>Oct 14–20</b><br>• End-sems: <b>Dec 1–15</b><br><br>Hall tickets are available 7 days before exams on the student portal. Results are published within 30 days. Contact the exam cell at exam@university.edu for queries."
+  },
+  hostel: {
+    keys: ["hostel","accommodation","room","dormitory","stay","mess","food","warden"],
+    reply: "🏠 <b>Hostel & Accommodation</b><br>On-campus hostels are available for <b>600 students</b> (3 blocks). Room types: Single (₹60,000/yr), Double (₹40,000/yr), Triple (₹28,000/yr).<br>Mess serves 3 meals/day (veg & non-veg). Apply via the housing portal by <b>July 31</b>."
+  },
+  placement: {
+    keys: ["placement","job","internship","campus","recruit","career","company","hire","salary","package"],
+    reply: "💼 <b>Placements & Careers</b><br>Our placement cell has connected students with <b>120+ companies</b>. Last year's stats:<br>• Avg package: ₹6.2 LPA<br>• Highest: ₹24 LPA<br>• Placement rate: 89%<br><br>Top recruiters: TCS, Infosys, Wipro, Deloitte, Amazon. Register at careers.university.edu."
+  },
+  events: {
+    keys: ["event","fest","cultural","sports","club","activity","annual","competition","seminar","workshop"],
+    reply: "🎉 <b>Events & Clubs</b><br>Upcoming events:<br>• <b>TechFest 2025</b> — Nov 8–10 (Coding, Robotics, Hackathon)<br>• <b>Culturals</b> — Jan 15–17 (Dance, Music, Drama)<br>• <b>Sports Meet</b> — Feb 3–5<br><br>We have 30+ clubs — tech, arts, NSS, sports. Join via the student portal."
+  },
+  contact: {
+    keys: ["contact","phone","email","address","location","office","helpdesk","support","reach"],
+    reply: "📞 <b>Contact Us</b><br>📍 University Campus, Sector 12, New Delhi – 110001<br>📧 info@university.edu<br>☎️ +91 11 2345 6789<br>⏰ Admin Office: Mon–Fri, 9 AM – 5 PM<br><br>Student helpdesk: Rm 101, Admin Block | helpdesk@university.edu"
+  },
+  greeting: {
+    keys: ["hi","hello","hey","good morning","good evening","good afternoon","howdy","greetings","namaste"],
+    reply: null
+  },
+  thanks: {
+    keys: ["thank","thanks","thank you","great","helpful","awesome","perfect","good","nice","ok","okay"],
+    reply: "😊 Happy to help! Is there anything else you'd like to know about campus?"
+  }
+};
+
+const quickOptions = [
+  {label:"Admissions", q:"How do I apply for admission?"},
+  {label:"Library", q:"What are the library hours?"},
+  {label:"Fees", q:"Tell me about fee structure"},
+  {label:"Exams", q:"When are the exams?"},
+  {label:"Hostel", q:"Hostel accommodation details"},
+  {label:"Placements", q:"What are the placement stats?"}
+];
+
+const greetings = [
+  "Hello! 👋 I'm <b>CampusBot</b>, your university assistant. I can help you with admissions, fees, library, exams, hostel, placements, events, and more.<br><br>What would you like to know?",
+];
+
+const fallbacks = [
+  "I'm not sure about that. Try asking about <b>admissions, fees, library, exams, hostel, placements</b>, or <b>events</b>. Or contact us at info@university.edu.",
+  "Hmm, I don't have info on that yet. You can reach our helpdesk at helpdesk@university.edu for more specific queries.",
+  "That's outside my current knowledge. Ask me about campus services like fees, exams, or placements — I'm good at those! 😊"
+];
+
+let msgDiv = document.getElementById('messages');
+let fallbackIdx = 0;
+
+function addMsg(text, who, withQuick=false) {
+  let wrap = document.createElement('div');
+  wrap.className = 'msg ' + who;
+  if(who === 'bot') {
+    let av = document.createElement('div'); av.className='bot-avatar';
+    av.innerHTML='<i class="ti ti-robot" aria-hidden="true"></i>'; wrap.appendChild(av);
+  }
+  let bub = document.createElement('div'); bub.className='bubble';
+  bub.innerHTML = text;
+  wrap.appendChild(bub);
+  msgDiv.appendChild(wrap);
+  if(withQuick) {
+    let qw = document.createElement('div'); qw.className='msg bot';
+    let av2=document.createElement('div');av2.className='bot-avatar';av2.innerHTML='<i class="ti ti-robot" aria-hidden="true"></i>';qw.appendChild(av2);
+    let qb=document.createElement('div');qb.className='bubble';qb.style.background='transparent';qb.style.border='none';
+    let qbtns=document.createElement('div');qbtns.className='quick-btns';
+    quickOptions.forEach(o=>{
+      let b=document.createElement('button');b.className='qbtn';b.textContent=o.label;
+      b.onclick=()=>sendMessage(o.q);qbtns.appendChild(b);
+    });
+    qb.appendChild(qbtns);qw.appendChild(qb);msgDiv.appendChild(qw);
+  }
+  msgDiv.scrollTop=msgDiv.scrollHeight;
+}
+
+function showTyping() {
+  let wrap=document.createElement('div');wrap.className='msg bot';wrap.id='typing-ind';
+  let av=document.createElement('div');av.className='bot-avatar';av.innerHTML='<i class="ti ti-robot" aria-hidden="true"></i>';wrap.appendChild(av);
+  let bub=document.createElement('div');bub.className='bubble';bub.style.padding='4px 14px';
+  bub.innerHTML='<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+  wrap.appendChild(bub);msgDiv.appendChild(wrap);msgDiv.scrollTop=msgDiv.scrollHeight;
+}
+
+function removeTyping(){let t=document.getElementById('typing-ind');if(t)t.remove();}
+
+function getReply(text) {
+  let lower = text.toLowerCase();
+  if(KB.greeting.keys.some(k=>lower.includes(k))) return greetings[0];
+  for(let key in KB) {
+    if(KB[key].keys.some(k=>lower.includes(k))) return KB[key].reply || greetings[0];
+  }
+  return fallbacks[fallbackIdx++ % fallbacks.length];
+}
+
+function sendMessage(text) {
+  if(!text.trim()) return;
+  addMsg(text, 'user');
+  document.getElementById('user-input').value='';
+  showTyping();
+  setTimeout(()=>{
+    removeTyping();
+    let reply = getReply(text);
+    let isGreet = KB.greeting.keys.some(k=>text.toLowerCase().includes(k)) && !text.toLowerCase().includes('admission');
+    addMsg(reply, 'bot', isGreet);
+  }, 700 + Math.random()*500);
+}
+
+document.getElementById('send-btn').onclick = ()=>{
+  sendMessage(document.getElementById('user-input').value);
+};
+document.getElementById('user-input').addEventListener('keydown', e=>{
+  if(e.key==='Enter') sendMessage(e.target.value);
+});
+
+setTimeout(()=>addMsg(greetings[0], 'bot', true), 300);
+</script>
